@@ -10,7 +10,8 @@ jobs:
     name: Android Build
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
@@ -20,8 +21,21 @@ jobs:
           docker build --tag=zbarcam-android \
                        --file=dockerfiles/Dockerfile-android .
 
-      - name: Build Android app
+      - name: Build Android app (debug)
         run: |
-          docker run --env-file dockerfiles/env.list \
-                     zbarcam-android buildozer android debug
-        timeout-minutes: 30
+          mkdir -p build_output
+          docker run --rm \
+                     -v ${{ github.workspace }}/build_output:/home/user/host_build \
+                     --env-file dockerfiles/env.list \
+                     zbarcam-android /bin/bash -c "
+                       cd /home/user/project &&
+                       buildozer android debug &&
+                       cp -r bin/*.apk /home/user/host_build/ || true
+                     "
+        timeout-minutes: 45
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zbarcam-apk
+          path: build_output/*.apk
